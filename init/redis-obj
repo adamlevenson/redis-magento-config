@@ -1,0 +1,105 @@
+#!/bin/sh
+#
+# redis - this script starts and stops the redis-server daemon
+#
+# chkconfig:   - 85 15 
+# description:  Redis is a persistent key-value database
+# processname: redis-server
+# config:      /etc/redis/redis-obj.conf
+# pidfile:     /var/run/redis-obj
+
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+# Source networking configuration.
+. /etc/sysconfig/network
+
+# Check that networking is up.
+[ "$NETWORKING" = "no" ] && exit 0
+
+# Give each instance a unique name - we use obj, ses and fpc for Magento
+INSTANCE="obj"
+REDIS_CONF=/etc/redis/redis-$INSTANCE.conf
+
+REDIS_DAEMON="/usr/local/bin/redis-server"
+REDIS_DESC=redis-$INSTANCE
+LOCKFILE=/var/lock/subsys/$REDIS_DESC
+PIDFILE=/var/run/$REDIS_DESC.pid
+
+
+[ -f /etc/sysconfig/redis ] && . /etc/sysconfig/redis
+
+start() {
+    [ -x $REDIS_DAEMON ] || exit 5
+    [ -f $REDIS_CONF ] || exit 6
+    echo -n $"Starting $REDIS_DESC: "
+    daemon --pidfile $PIDFILE $REDIS_DAEMON $REDIS_CONF
+    retval=$?
+    echo
+    [ $retval -eq 0 ] && touch $LOCKFILE
+    return $retval
+}
+
+stop() {
+    echo -n $"Stopping $REDIS_DESC: "
+    killproc -p $PIDFILE $REDIS_DESC -QUIT
+    retval=$?
+    echo
+    [ $retval -eq 0 ] && rm -f $LOCKFILE
+    return $retval
+}
+
+restart() {
+    stop
+    start
+}
+
+reload() {
+    echo -n $"Reloading $REDIS_DESC: "
+    killproc -p $PIDFILE $REDIS_DAEMON -HUP
+    RETVAL=$?
+    echo
+}
+
+force_reload() {
+    restart
+}
+
+rh_status() {
+    status $REDIS_DESC
+}
+
+rh_status_q() {
+    rh_status >/dev/null 2>&1
+}
+
+case "$1" in
+    start)
+        rh_status_q && exit 0
+        $1
+        ;;
+    stop)
+        rh_status_q || exit 0
+        $1
+        ;;
+    restart|configtest)
+        $1
+        ;;
+    reload)
+        rh_status_q || exit 7
+        $1
+        ;;
+    force-reload)
+        force_reload
+        ;;
+    status)
+        rh_status
+        ;;
+    condrestart|try-restart)
+        rh_status_q || exit 0
+     ;;
+    *)
+        echo $"Usage: $0 {start|stop|status|restart|condrestart|try-restart|reload|force-reload}"
+        exit 2
+esac
